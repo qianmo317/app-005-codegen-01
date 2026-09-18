@@ -9,7 +9,8 @@ import {
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
-  BellOutlined
+  BellOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -53,6 +54,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       key: '/employees',
       icon: <UserOutlined />,
       label: '员工管理',
+    },
+    {
+      key: '/consumables',
+      icon: <ExperimentOutlined />,
+      label: '耗材消耗账',
     },
   ];
 

@@ -176,3 +176,89 @@ export interface TodayAppointment {
   time: string;
   status: string;
 }
+
+// ==================== 耗材消耗账 ====================
+
+/** 耗材分类：面膜粉 / 精油 / 脱毛蜡 等 */
+export type ConsumableCategory = 'mask_powder' | 'essential_oil' | 'wax' | string;
+
+/** 耗材目录 */
+export interface Consumable {
+  id: string;
+  name: string;
+  category: ConsumableCategory;
+  /** 计量单位，如 g / ml / 罐 / 瓶 */
+  unit: string;
+  /** 开封后保质期（天），开封日起算 */
+  openedShelfLifeDays: number;
+  /** 临期预警阈值（天） */
+  warningDays: number;
+  /** 安全库存（低于此值提示补货） */
+  safetyStock: number;
+  status: 'active' | 'inactive';
+  createdAt: string;
+}
+
+/** 批次库存状态（账面派生状态） */
+export type BatchLifeStatus = 'normal' | 'near_expiry' | 'expired' | 'used_up';
+
+/** 入库批次 */
+export interface ConsumableBatch {
+  id: string;
+  /** 批号，全局唯一，同一批号禁止重复入库 */
+  batchNo: string;
+  consumableId: string;
+  /** 入库日期 YYYY-MM-DD */
+  inboundDate: string;
+  /** 有效期（未开封保质期截止日）YYYY-MM-DD */
+  expiryDate: string;
+  /** 开封日期 YYYY-MM-DD，null 表示尚未开封 */
+  openedDate: string | null;
+  /** 入库数量 */
+  initialQuantity: number;
+  /** 剩余数量（每次领用递减） */
+  remainingQuantity: number;
+  supplier: string;
+  createdAt: string;
+}
+
+/** 领用流水（哪次护理用了哪一批、用了多少） */
+export interface ConsumableUsage {
+  id: string;
+  batchId: string;
+  consumableId: string;
+  /** 领用日期 YYYY-MM-DD */
+  usageDate: string;
+  /** 领用数量 */
+  quantity: number;
+  /** 关联的护理记录（可选，代表"哪次护理"） */
+  serviceRecordId: string | null;
+  customerId: string | null;
+  employeeId: string | null;
+  /** 用途/备注 */
+  purpose: string;
+  operator: string;
+  createdAt: string;
+}
+
+/** 盘点明细行：某一批对了多少 */
+export interface StockCheckItem {
+  batchId: string;
+  /** 系统账面余量（盘点单生成时快照） */
+  bookQuantity: number;
+  /** 实盘数量 */
+  actualQuantity: number | null;
+}
+
+/** 月底点货单 */
+export interface StockCheck {
+  id: string;
+  /** 盘点月份 YYYY-MM */
+  month: string;
+  /** 盘点日期 YYYY-MM-DD */
+  checkDate: string;
+  items: StockCheckItem[];
+  operator: string;
+  note: string;
+  createdAt: string;
+}
