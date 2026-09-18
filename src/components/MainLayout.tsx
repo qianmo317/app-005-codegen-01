@@ -7,6 +7,7 @@ import {
   CalendarOutlined,
   ScheduleOutlined,
   UserOutlined,
+  InboxOutlined,
   LogoutOutlined,
   SettingOutlined,
   BellOutlined
@@ -53,6 +54,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       key: '/employees',
       icon: <UserOutlined />,
       label: '员工管理',
+    },
+    {
+      key: '/consumables',
+      icon: <InboxOutlined />,
+      label: '耗材管理',
     },
   ];
 

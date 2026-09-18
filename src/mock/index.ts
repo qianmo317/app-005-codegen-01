@@ -417,3 +417,91 @@ export const mockWaitList = (customerIds: string[], serviceIds: string[]) => {
   }
   return waitList;
 };
+
+export const mockConsumables = () => {
+  return [
+    { id: 'M001', name: '玫瑰软膜粉', category: '面膜粉', unit: 'g', spec: '500g/罐', shelfLifeDaysAfterOpen: 90, warnDays: 30 },
+    { id: 'M002', name: '薰衣草精油', category: '精油', unit: 'ml', spec: '100ml/瓶', shelfLifeDaysAfterOpen: 180, warnDays: 30 },
+    { id: 'M003', name: '脱毛热蜡', category: '脱毛蜡', unit: 'g', spec: '1kg/桶', shelfLifeDaysAfterOpen: 60, warnDays: 20 },
+    { id: 'M004', name: '玻尿酸保湿原液', category: '精华液', unit: 'ml', spec: '30ml/瓶', shelfLifeDaysAfterOpen: 60, warnDays: 15 },
+    { id: 'M005', name: '洋甘菊舒缓纯露', category: '纯露', unit: 'ml', spec: '500ml/瓶', shelfLifeDaysAfterOpen: 120, warnDays: 30 },
+    { id: 'M006', name: '茶树精油', category: '精油', unit: 'ml', spec: '50ml/瓶', shelfLifeDaysAfterOpen: 180, warnDays: 30 }
+  ];
+};
+
+export const mockConsumableBatches = (consumables: ReturnType<typeof mockConsumables>) => {
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const find = (id: string) => consumables.find(c => c.id === id)!;
+  const defs = [
+    // [耗材, 批号, 入库量, 入库日偏移, 有效期偏移, 开封日偏移(null=未开封), 供应商, 单价]
+    ['M001', 'MP20260418A', 2000, -120, 200, -40, '广州美颜生物', 128],
+    ['M001', 'MP20260702B', 2000, -60, 300, null, '广州美颜生物', 128],
+    ['M001', 'MP20251105C', 1500, -300, -10, -200, '广州美颜生物', 118],
+    ['M002', 'EO20260301A', 500, -180, 15, -10, '上海芳疗贸易', 268],
+    ['M002', 'EO20260812B', 500, -30, 400, null, '上海芳疗贸易', 278],
+    ['M003', 'WX20260501A', 3000, -110, 100, -50, '深圳丽洁日化', 198],
+    ['M003', 'WX20260820B', 3000, -20, 250, null, '深圳丽洁日化', 205],
+    ['M003', 'WX20260315C', 2000, -160, 90, -70, '深圳丽洁日化', 188],
+    ['M004', 'HA20260610A', 600, -80, 90, -48, '杭州肌研科技', 158],
+    ['M004', 'HA20260825B', 600, -15, 150, null, '杭州肌研科技', 158],
+    ['M005', 'HW20260701A', 1500, -70, 365, null, '云南花语生物', 98],
+    ['M006', 'EO20260401T', 300, -150, 400, -100, '上海芳疗贸易', 188]
+  ] as const;
+
+  return defs.map((d, i) => {
+    const c = find(d[0]);
+    return {
+      id: `B${String(i + 1).padStart(4, '0')}`,
+      consumableId: c.id,
+      batchNo: d[1] as string,
+      quantity: d[2] as number,
+      remaining: d[2] as number,
+      expiryDate: day(d[4] as number),
+      openedDate: d[5] === null ? null : day(d[5] as number),
+      supplier: d[6] as string,
+      unitPrice: d[7] as number,
+      receivedAt: day(d[3] as number),
+      notes: ''
+    };
+  });
+};
+
+export const mockConsumableUsages = (
+  batches: ReturnType<typeof mockConsumableBatches>,
+  consumables: ReturnType<typeof mockConsumables>,
+  serviceRecords: { id: string; customerId: string; serviceId: string; employeeId: string }[]
+) => {
+  const usages = [];
+  batches.forEach(batch => {
+    if (!batch.openedDate) return;
+    const consumable = consumables.find(c => c.id === batch.consumableId)!;
+    const perUse = consumable.unit === 'ml' ? [5, 20] : [20, 80];
+    const count = Random.integer(3, 8);
+    for (let i = 0; i < count; i++) {
+      const qty = Random.integer(perUse[0], perUse[1]);
+      if (batch.remaining - qty < 0) break;
+      batch.remaining -= qty;
+      const sr = serviceRecords[Random.integer(0, serviceRecords.length - 1)];
+      const usedDate = new Date(batch.openedDate);
+      usedDate.setDate(usedDate.getDate() + Random.integer(0, 30));
+      if (usedDate.getTime() > Date.now()) usedDate.setTime(Date.now());
+      usages.push({
+        id: `U${String(usages.length + 1).padStart(6, '0')}`,
+        batchId: batch.id,
+        consumableId: batch.consumableId,
+        quantity: qty,
+        serviceRecordId: sr ? sr.id : null,
+        customerId: sr ? sr.customerId : null,
+        serviceId: sr ? sr.serviceId : null,
+        employeeId: sr ? sr.employeeId : '',
+        usedAt: usedDate.toISOString(),
+        notes: ''
+      });
+    }
+  });
+  return usages;
+};

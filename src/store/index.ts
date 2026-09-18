@@ -15,7 +15,11 @@ import type {
   Review,
   Attendance,
   Commission,
-  WaitList
+  WaitList,
+  Consumable,
+  ConsumableBatch,
+  ConsumableUsage,
+  StockCheck
 } from '../types';
 import {
   mockCustomers,
@@ -32,8 +36,12 @@ import {
   mockReviews,
   mockAttendance,
   mockCommissions,
-  mockWaitList
+  mockWaitList,
+  mockConsumables,
+  mockConsumableBatches,
+  mockConsumableUsages
 } from '../mock';
+import { getDaysLeft } from '../utils/consumable';
 
 interface AppState {
   customers: Customer[];
@@ -51,6 +59,10 @@ interface AppState {
   attendance: Attendance[];
   commissions: Commission[];
   waitList: WaitList[];
+  consumables: Consumable[];
+  consumableBatches: ConsumableBatch[];
+  consumableUsages: ConsumableUsage[];
+  stockChecks: StockCheck[];
   initialized: boolean;
 }
 
@@ -66,6 +78,18 @@ const loadState = (): AppState => {
         const b64 = firstCustomer.avatar.replace('data:image/svg+xml;base64,', '');
         try {
           atob(b64);
+          // 老数据缺少耗材模块时补生成
+          if (!saved.consumables) {
+            const consumables = mockConsumables();
+            const consumableBatches = mockConsumableBatches(consumables);
+            return {
+              ...saved,
+              consumables,
+              consumableBatches,
+              consumableUsages: mockConsumableUsages(consumableBatches, consumables, saved.serviceRecords ?? []),
+              stockChecks: []
+            };
+          }
           return saved;
         } catch (e) {
           console.log('Detected corrupted data, regenerating...');
@@ -84,6 +108,9 @@ const loadState = (): AppState => {
   const employees = mockEmployees() as Employee[];
   const employeeIds = employees.map(e => e.id);
   const packages = mockPackages() as Package[];
+  const consumables = mockConsumables();
+  const consumableBatches = mockConsumableBatches(consumables);
+  const serviceRecords = mockServiceRecords(customerIds, serviceIds, employeeIds);
 
   return {
     customers,
@@ -95,12 +122,16 @@ const loadState = (): AppState => {
     packageItems: mockPackageItems(packages),
     employees,
     appointments: mockAppointments(customerIds, serviceIds, employeeIds),
-    serviceRecords: mockServiceRecords(customerIds, serviceIds, employeeIds),
+    serviceRecords,
     schedules: mockSchedules(employeeIds),
     reviews: mockReviews(customerIds, employeeIds, serviceIds),
     attendance: mockAttendance(employeeIds),
     commissions: mockCommissions(employeeIds),
     waitList: mockWaitList(customerIds, serviceIds),
+    consumables,
+    consumableBatches,
+    consumableUsages: mockConsumableUsages(consumableBatches, consumables, serviceRecords),
+    stockChecks: [],
     initialized: true
   };
 };
@@ -237,6 +268,51 @@ const appSlice = createSlice({
         else if (membership.totalSpent > 5000) membership.level = 'silver';
       }
       saveState(state);
+    },
+    addConsumable: (state, action: PayloadAction<Consumable>) => {
+      state.consumables.unshift(action.payload);
+      saveState(state);
+    },
+    addConsumableBatch: (state, action: PayloadAction<ConsumableBatch>) => {
+      const batch = action.payload;
+      // 同一耗材下批号不允许重复入库
+      const duplicated = state.consumableBatches.some(
+        b => b.consumableId === batch.consumableId && b.batchNo === batch.batchNo
+      );
+      if (duplicated) return;
+      state.consumableBatches.unshift(batch);
+      saveState(state);
+    },
+    openConsumableBatch: (state, action: PayloadAction<{ id: string; openedDate: string }>) => {
+      const batch = state.consumableBatches.find(b => b.id === action.payload.id);
+      if (batch && !batch.openedDate) {
+        batch.openedDate = action.payload.openedDate;
+        saveState(state);
+      }
+    },
+    issueConsumable: (state, action: PayloadAction<ConsumableUsage>) => {
+      const usage = action.payload;
+      const batch = state.consumableBatches.find(b => b.id === usage.batchId);
+      const consumable = state.consumables.find(c => c.id === usage.consumableId);
+      if (!batch || !consumable) return;
+      // 已过期批次禁止领用
+      if (getDaysLeft(consumable, batch) < 0) return;
+      if (usage.quantity <= 0 || usage.quantity > batch.remaining) return;
+      batch.remaining -= usage.quantity;
+      // 未开封批次首次领用自动记开封日期
+      if (!batch.openedDate) {
+        batch.openedDate = usage.usedAt.slice(0, 10);
+      }
+      state.consumableUsages.unshift(usage);
+      saveState(state);
+    },
+    addStockCheck: (state, action: PayloadAction<StockCheck>) => {
+      const check = action.payload;
+      const batch = state.consumableBatches.find(b => b.id === check.batchId);
+      if (!batch) return;
+      batch.remaining = check.actualQuantity;
+      state.stockChecks.unshift(check);
+      saveState(state);
     }
   }
 });
@@ -263,7 +339,12 @@ export const {
   addWaitList,
   updateWaitList,
   deleteWaitList,
-  addServiceRecord
+  addServiceRecord,
+  addConsumable,
+  addConsumableBatch,
+  openConsumableBatch,
+  issueConsumable,
+  addStockCheck
 } = appSlice.actions;
 
 export const store = configureStore({

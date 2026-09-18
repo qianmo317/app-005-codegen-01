@@ -157,6 +157,54 @@ export interface Commission {
   commissionDate: string;
 }
 
+export interface Consumable {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  spec: string;
+  shelfLifeDaysAfterOpen: number;
+  warnDays: number;
+}
+
+export interface ConsumableBatch {
+  id: string;
+  consumableId: string;
+  batchNo: string;
+  quantity: number;
+  remaining: number;
+  expiryDate: string;
+  openedDate: string | null;
+  supplier: string;
+  unitPrice: number;
+  receivedAt: string;
+  notes: string;
+}
+
+export interface ConsumableUsage {
+  id: string;
+  batchId: string;
+  consumableId: string;
+  quantity: number;
+  serviceRecordId: string | null;
+  customerId: string | null;
+  serviceId: string | null;
+  employeeId: string;
+  usedAt: string;
+  notes: string;
+}
+
+export interface StockCheck {
+  id: string;
+  batchId: string;
+  consumableId: string;
+  bookQuantity: number;
+  actualQuantity: number;
+  difference: number;
+  checkedAt: string;
+  notes: string;
+}
+
 export interface DashboardStats {
   monthlyRevenue: number;
   newCustomers: number;
